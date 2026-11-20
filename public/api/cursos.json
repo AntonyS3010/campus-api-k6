@@ -1,0 +1,20 @@
+{
+  "version": "1.0.0",
+  "cursos": [
+    {
+      "codigo": "C01",
+      "nombre": "Base de Datos",
+      "creditos": 4
+    },
+    {
+      "codigo": "C02",
+      "nombre": "Calidad de Software",
+      "creditos": 3
+    },
+    {
+      "codigo": "C03",
+      "nombre": "Desarrollo Web",
+      "creditos": 4
+    }
+  ]
+}

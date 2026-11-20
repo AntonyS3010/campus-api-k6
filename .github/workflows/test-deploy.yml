@@ -1,0 +1,74 @@
+name: Probar API y desplegar
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: api-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: grafana/setup-k6-action@v1
+        with:
+          k6-version: '2.4.0'
+      - name: Verificar contrato HTTP en entorno aislado
+        run: python3 tests/run-local.py
+      - name: Conservar resultados reales
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-local
+          path: results.json
+          if-no-files-found: error
+          retention-days: 14
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - id: deployment
+        uses: actions/deploy-pages@v4
+  verify-public:
+    needs: deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: grafana/setup-k6-action@v1
+        with:
+          k6-version: '2.4.0'
+      - name: Probar la API publicada con las mismas comprobaciones
+        env:
+          BASE_URL: ${{ needs.deploy.outputs.url }}
+          RESULTS_FILE: results-public.json
+        run: k6 run tests/api.js
+      - name: Conservar evidencia de la API pública
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-public
+          path: results-public.json
+          if-no-files-found: error
+          retention-days: 14
